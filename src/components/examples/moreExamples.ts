@@ -13,7 +13,8 @@ import ProjectSystem from "@/components/fileExplorer/projectSystem";
 import Examples from "./examples";
 import DropdownElement from "../navbar/dropdownElement";
 import * as JsSearch from "js-search";
-import { fetchDataFile } from "@/utils/fileLoader";
+import { isPlaintextFile } from "webchuck/dist/utils";
+import { File, fetchDataFile, fetchTextFile } from "@/utils/fileLoader";
 
 // JSON Structure
 interface MoreExamplesJSON {
@@ -47,6 +48,7 @@ export default class MoreExamples {
     private static breadCrumbPath: string[] = [];
 
     private static autoCompleteVisible: boolean = false;
+    private static autoCompleteSelectedIndex: number = -1;
 
     constructor() {
         // Create more examples button in examples navbar dropdown
@@ -124,23 +126,119 @@ export default class MoreExamples {
 
         // More Examples Search
         MoreExamples.moreExamplesSearch.addEventListener("input", () => {
-            MoreExamples.searchExamples(MoreExamples.moreExamplesSearch.value);
-            if (!MoreExamples.autoCompleteVisible) {
+            const query = MoreExamples.moreExamplesSearch.value;
+            MoreExamples.searchExamples(query);
+            MoreExamples.autoCompleteSelectedIndex = -1;
+            MoreExamples.moreExamplesSearch.setAttribute(
+                "aria-activedescendant",
+                ""
+            );
+            const hasResults =
+                query.trim() !== "" &&
+                MoreExamples.moreExamplesAutoCompleteList.children.length > 0;
+            if (hasResults && !MoreExamples.autoCompleteVisible) {
                 MoreExamples.moreExamplesAutoComplete.classList.remove(
                     "hidden"
                 );
+                MoreExamples.moreExamplesSearch.setAttribute(
+                    "aria-expanded",
+                    "true"
+                );
                 MoreExamples.autoCompleteVisible = true;
+            } else if (!hasResults && MoreExamples.autoCompleteVisible) {
+                MoreExamples.moreExamplesAutoComplete.classList.add("hidden");
+                MoreExamples.moreExamplesSearch.setAttribute(
+                    "aria-expanded",
+                    "false"
+                );
+                MoreExamples.autoCompleteVisible = false;
             }
         });
         MoreExamples.moreExamplesSearch.addEventListener(
             "click",
             (e: MouseEvent) => {
                 e.stopPropagation();
-                if (!MoreExamples.autoCompleteVisible) {
+                if (
+                    !MoreExamples.autoCompleteVisible &&
+                    MoreExamples.moreExamplesSearch.value.trim() !== ""
+                ) {
                     MoreExamples.moreExamplesAutoComplete.classList.remove(
                         "hidden"
                     );
+                    MoreExamples.moreExamplesSearch.setAttribute(
+                        "aria-expanded",
+                        "true"
+                    );
                     MoreExamples.autoCompleteVisible = true;
+                }
+            }
+        );
+        MoreExamples.moreExamplesSearch.addEventListener(
+            "keydown",
+            (e: KeyboardEvent) => {
+                const list = MoreExamples.moreExamplesAutoCompleteList.children;
+                if (!MoreExamples.autoCompleteVisible || list.length === 0)
+                    return;
+
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    if (e.key === "ArrowDown") {
+                        MoreExamples.autoCompleteSelectedIndex++;
+                        if (
+                            MoreExamples.autoCompleteSelectedIndex >=
+                            list.length
+                        ) {
+                            MoreExamples.autoCompleteSelectedIndex = 0;
+                        }
+                    } else if (e.key === "ArrowUp") {
+                        MoreExamples.autoCompleteSelectedIndex--;
+                        if (MoreExamples.autoCompleteSelectedIndex < 0) {
+                            MoreExamples.autoCompleteSelectedIndex =
+                                list.length - 1;
+                        }
+                    }
+
+                    for (let i = 0; i < list.length; i++) {
+                        const item = list[i] as HTMLElement;
+                        if (i === MoreExamples.autoCompleteSelectedIndex) {
+                            item.classList.add("selected");
+                            item.setAttribute("aria-selected", "true");
+                            MoreExamples.moreExamplesSearch.setAttribute(
+                                "aria-activedescendant",
+                                item.id
+                            );
+                        } else {
+                            item.classList.remove("selected");
+                            item.setAttribute("aria-selected", "false");
+                        }
+                    }
+                    if (MoreExamples.autoCompleteSelectedIndex === -1) {
+                        MoreExamples.moreExamplesSearch.setAttribute(
+                            "aria-activedescendant",
+                            ""
+                        );
+                    }
+                } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (
+                        MoreExamples.autoCompleteSelectedIndex >= 0 &&
+                        MoreExamples.autoCompleteSelectedIndex < list.length
+                    ) {
+                        (
+                            list[
+                                MoreExamples.autoCompleteSelectedIndex
+                            ] as HTMLElement
+                        ).click();
+                        // Also hide autocomplete upon selection via Enter
+                        MoreExamples.moreExamplesAutoComplete.classList.add(
+                            "hidden"
+                        );
+                        MoreExamples.moreExamplesSearch.setAttribute(
+                            "aria-expanded",
+                            "false"
+                        );
+                        MoreExamples.autoCompleteVisible = false;
+                    }
                 }
             }
         );
@@ -151,6 +249,10 @@ export default class MoreExamples {
                 if (MoreExamples.autoCompleteVisible) {
                     MoreExamples.moreExamplesAutoComplete.classList.add(
                         "hidden"
+                    );
+                    MoreExamples.moreExamplesSearch.setAttribute(
+                        "aria-expanded",
+                        "false"
                     );
                     MoreExamples.autoCompleteVisible = false;
                 }
@@ -192,6 +294,9 @@ export default class MoreExamples {
         for (let i = 0; i < size; i++) {
             const result = results[i];
             const option = document.createElement("li");
+            option.role = "option";
+            option.id = "autocomplete-item-" + i;
+            option.setAttribute("aria-selected", "false");
             const name = document.createElement("b");
             const code = document.createElement("span");
             name.innerHTML = highlightText(result.name, query);
@@ -322,8 +427,8 @@ export default class MoreExamples {
     }
 
     /**
-     * Create an item in the file explorer
-     * @param name
+     * Create a folder item in the file explorer
+     * @param name folder name
      */
     static createExplorerFolder(name: string) {
         const item = document.createElement("button");
@@ -335,6 +440,10 @@ export default class MoreExamples {
         MoreExamples.moreExamplesExplorer.appendChild(item);
     }
 
+    /**
+     * Create a file item in the file explorer
+     * @param file ChucKExample file
+     */
     static createExplorerFile(file: ChuckExample) {
         const item = document.createElement("button");
         item.classList.add("explorer-item");
@@ -368,7 +477,12 @@ export default class MoreExamples {
             MoreExamples.previewExample.code
         );
         MoreExamples.previewExample.data.forEach(async (url: string) => {
-            const file = await fetchDataFile(url);
+            let file: File | null = null;
+            if (isPlaintextFile(url)) {
+                file = await fetchTextFile(url);
+            } else {
+                file = await fetchDataFile(url);
+            }
             if (file !== null) {
                 ProjectSystem.addNewFile(file.name, file.data);
             }

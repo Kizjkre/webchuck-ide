@@ -1,4 +1,3 @@
-import JSZip from "jszip";
 import ProjectSystem from "@/components/fileExplorer/projectSystem";
 import Editor from "@/components/editor/monaco/editor";
 import { getGlobalVariables } from "@/utils/chuckPreprocess";
@@ -100,13 +99,15 @@ async function exportWebchuck(
         description;
 
     // Check code for global variables to build mixer
-    const globals = getGlobalVariables(code);
-    let mixer_code = `const mixer = document.querySelector('#webchuck-gui');\n`;
-    mixer_code += globals.float.length > 0 ? MIXER_JS : ""; // only look at floats
-    wc_html = docFindReplace(wc_html, "{{{ MIXER_CODE }}}", mixer_code);
-    if (globals.float.length == 0) {
+    const mixerGlobals = getGlobalVariables(code);
+    let mixerCode = "";
+    if (mixerGlobals.float.length == 0) {
         wc_html.getElementById("webchuck-gui")?.remove();
+    } else {
+        mixerCode = MIXER_JS;
     }
+    // Set/clear mixer code
+    wc_html = docFindReplace(wc_html, "{{{ MIXER_CODE }}}", mixerCode);
 
     // Add in PRELOAD_FILES
     // get all projectFiles excluding the current active file
@@ -117,7 +118,7 @@ async function exportWebchuck(
     const preloadFileString = projectFilesToPreload.map((file) => {
         return {
             serverFilename: `./${file.getFilename()}`,
-            virtualFilename: file.getFilename(),
+            virtualFilename: file.getFilename()
         };
     });
     wc_html = docFindReplace(
@@ -146,7 +147,7 @@ async function exportWebchuck(
 function exportSingleWCFile(wc_html: Document) {
     // Download a single HTML file
     const webchuckFileBlob = new Blob([wc_html.documentElement.outerHTML], {
-        type: "text/html",
+        type: "text/html"
     });
     window.URL = window.URL || window.webkitURL;
     const webchuckFileURL = window.URL.createObjectURL(webchuckFileBlob);
@@ -161,7 +162,7 @@ function exportSingleWCFile(wc_html: Document) {
  * Export all project files as a .zip
  * @param wc_html webchuck html document
  */
-function exportProjectWCFiles(
+async function exportProjectWCFiles(
     title: string,
     mainChuckFile: string,
     wc_html: Document,
@@ -170,6 +171,7 @@ function exportProjectWCFiles(
     if (title === "") {
         title = mainChuckFile.split(".")[0];
     }
+    const { default: JSZip } = await import("jszip");
     const zip = new JSZip();
     zip.file("index.html", wc_html.documentElement.outerHTML);
     projectFiles.forEach((file: any) => {

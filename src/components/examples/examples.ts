@@ -12,7 +12,7 @@ import NestedDropdown from "@/components/navbar/nestedDropdown";
 import InputPanelHeader from "@/components/inputPanel/inputPanelHeader";
 import {
     loadChuckFileFromURL,
-    loadDataFileFromURL,
+    loadDataFileFromURL
 } from "@components/fileExplorer/projectSystem";
 
 export default class Examples {
@@ -133,8 +133,8 @@ export default class Examples {
         Examples.newExample(
             "Mouse PWM HID",
             () => {
-                loadChuckFileFromURL("examples/mouseHID.ck"),
-                    InputPanelHeader.setNotificationPing(1, true);
+                loadChuckFileFromURL("examples/mouseHID.ck");
+                InputPanelHeader.setNotificationPing(1, true);
             },
             hidNested
         );

@@ -37,6 +37,16 @@ To run WebChucK IDE on a local development server for testing:
 npm run dev
 ```
 
+## Accessibility Testing
+
+To run local accessibility testing, make sure the local development server is running (see above), then:
+
+```
+npm run a11y
+```
+
+Make sure that the accessibility test passes before deploying.
+
 ## Building
 
 Build WebChucK IDE to a static site by running: 
@@ -49,17 +59,34 @@ This will build WebChucK IDE and place all necessary files in the `./dist` folde
 
 ## Deploy and Release
 
-To package and release a new version of WebChucK IDE, make sure all changes are 
-PR'ed onto the `main` branch. From `main`, make a clean build of WebChucK IDE, 
-then tag the version for release.
+To release a new version of WebChucK IDE:
+
+1. **On the `dev` branch**, bump the version number (without creating a tag yet):
+
+```
+npm version patch --no-git-tag-version    # or minor/major as appropriate
+git add package.json package-lock.json
+git commit -m "Bump version to X.X.X"
+git push origin dev
+```
+
+2. **Create a pull request** merging `dev` into `main` with the version bump
+
+3. **Once merged to `main`**, build and deploy:
 
 ```
 npm run clean
 npm install
 npm run build
-npm version patch
 ```
 
 Copy the `./dist/` folder to hosting destination.
 
-Talk to **@gewang** to update the [WebChucK IDE](https://chuck.stanford.edu/ide) site.
+4. **Tag the release** on the `main` merge commit:
+
+```
+git tag -a vX.X.X -m "Release version X.X.X"
+git push origin vX.X.X
+```
+
+This will trigger a GitHub release. Talk to **@gewang** to update the [WebChucK IDE](https://chuck.stanford.edu/ide) site.
